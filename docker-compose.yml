@@ -1,0 +1,153 @@
+version: '3.8'
+
+services:
+  # Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: autonate
+      POSTGRES_USER: autonate
+      POSTGRES_PASSWORD: liberation123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U autonate"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for agent communication
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Autonate Prime - The Orchestrator
+  autonate-prime:
+    build:
+      context: .
+      dockerfile: docker/autonate-prime/Dockerfile
+    environment:
+      - AGENT_ID=autonate-prime
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DIALPAD_API_KEY=${DIALPAD_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # Wellness Guardian
+  wellness-guardian:
+    build:
+      context: .
+      dockerfile: docker/wellness-guardian/Dockerfile
+    environment:
+      - AGENT_ID=wellness-guardian
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3002:3000"
+    restart: unless-stopped
+
+  # Route Oracle
+  route-oracle:
+    build:
+      context: .
+      dockerfile: docker/route-oracle/Dockerfile
+    environment:
+      - AGENT_ID=route-oracle
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - WEATHER_API_KEY=${WEATHER_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3003:3000"
+    restart: unless-stopped
+
+  # Customer Empath
+  customer-empath:
+    build:
+      context: .
+      dockerfile: docker/customer-empath/Dockerfile
+    environment:
+      - AGENT_ID=customer-empath
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DIALPAD_API_KEY=${DIALPAD_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3004:3000"
+    restart: unless-stopped
+
+  # Carrier Vettor
+  carrier-vettor:
+    build:
+      context: .
+      dockerfile: docker/carrier-vettor/Dockerfile
+    environment:
+      - AGENT_ID=carrier-vettor
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3005:3000"
+    restart: unless-stopped
+
+  # Narrative Artist
+  narrative-artist:
+    build:
+      context: .
+      dockerfile: docker/narrative-artist/Dockerfile
+    environment:
+      - AGENT_ID=narrative-artist
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3006:3000"
+    restart: unless-stopped
+
+  # Liberation Dashboard
+  liberation-dashboard:
+    build:
+      context: .
+      dockerfile: docker/dashboard/Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://autonate:liberation123@postgres:5432/autonate
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
