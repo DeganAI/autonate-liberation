@@ -1,6 +1,6 @@
 # 🚀 Autonate Liberation Organization
 
-> *"Because shipping cars shouldn't require a PhD in logistics... or working 56-hour weeks"*
+> *"Because shipping cars shouldn't require a PhD in logistics... or a 56-hour work week"*
 
 [![Built with Eliza](https://img.shields.io/badge/Built%20with-Eliza%20Framework-purple)](https://github.com/elizaOS/eliza)
 [![Powered by The Org](https://img.shields.io/badge/Powered%20by-The%20Org-blue)](https://github.com/elizaOS/the-org)
