@@ -9,7 +9,7 @@
 
 ## 🌟 What is Autonate?
 
-Autonate is a revolutionary multi-agent AI system that transforms auto transport coordination. Built on the incredible [Eliza Framework](https://github.com/elizaOS/eliza) and orchestrated by [The Org](https://github.com/elizaOS/the-org), it's not just another chatbot - it's a liberation movement disguised as software.
+Autonate is a revolutionary multi-agent AI system that transforms auto transport coordination. Built on [Eliza Framework](https://github.com/elizaOS/eliza) and orchestrated by [The Org](https://github.com/elizaOS/the-org), it's not just another chatbot - it's a liberation movement disguised as software.
 
 ### The Problem We Solve
 
