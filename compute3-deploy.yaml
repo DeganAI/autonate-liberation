@@ -1,0 +1,59 @@
+# Deployment configuration for Autonate Liberation Organization on Compute3.ai
+
+name: autonate-liberation-org
+version: 1.0.0
+description: Multi-agent auto transport coordinator that liberates humans
+
+# Compute3.ai specific configuration
+compute3:
+  workspace: autonate-liberation
+  region: us-west-2
+  tier: professional # For production workloads
+  
+# Agent deployment specifications
+agents:
+  - id: autonate-prime
+    name: Autonate Prime
+    resources:
+      cpu: 2
+      memory: 4Gi
+      gpu: false
+    replicas: 2 # High availability
+    model:
+      provider: anthropic
+      name: claude-3-opus-20240229
+      temperature: 0.7
+    environment:
+      - name: ROLE
+        value: orchestrator
+      - name: LIBERATION_MODE
+        value: "true"
+    health_check:
+      endpoint: /health
+      interval: 30s
+      timeout: 10s
+
+  - id: wellness-guardian
+    name: Wellness Guardian
+    resources:
+      cpu: 1
+      memory: 2Gi
+      gpu: false
+    replicas: 1
+    model:
+      provider: anthropic
+      name: claude-3-sonnet-20240229
+      temperature: 0.6
+    environment:
+      - name: ROLE
+        value: wellness_monitor
+      - name: BREAK_ENFORCEMENT
+        value: "strict"
+      - name: MAX_HOURS_WITHOUT_BREAK
+        value: "2"
+    scheduled_tasks:
+      - name: wellness_check
+        schedule: "*/15 * * * *" # Every 15 minutes
+        action: check_all_coordinators
+
+# ... (rest of the file as created earlier)
