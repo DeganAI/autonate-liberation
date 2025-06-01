@@ -6,6 +6,9 @@
   "type": "module",
   "scripts": {
     "deploy": "ts-node deploy-autonate.ts deploy",
+    "deploy:simulate": "node deploy-simulator.js",
+    "test:build": "node test-build.js",
+    "fix:ts": "npx tsc --noEmit",
     "monitor": "ts-node deploy-autonate.ts monitor",
     "metrics": "ts-node deploy-autonate.ts metrics",
     "dev": "nodemon --exec ts-node src/index.ts",
