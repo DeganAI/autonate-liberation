@@ -1,10 +1,10 @@
 // deploy-autonate.ts
 // Deployment script for Autonate Liberation Organization on Compute3.ai
 
-import { execSync } from 'child_process';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as dotenv from 'dotenv';
+const { execSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
 
 dotenv.config();
 
