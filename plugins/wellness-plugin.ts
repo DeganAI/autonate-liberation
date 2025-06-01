@@ -165,7 +165,7 @@ export const wellnessReportAction: Action = {
     similes: ["report", "wellness", "health", "status"],
     examples: [[
         {
-            user: "user
+            user: "user",
             content: { text: "Generate wellness report" }
         },
         {
