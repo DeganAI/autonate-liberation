@@ -1,6 +1,6 @@
 # 🚀 Autonate Liberation Organization
 
-> *"Because shipping cars shouldn't require a PhD in logistics... or working 56-hour weeks"*
+> *"Because shipping cars shouldn't require a PhD in logistics"*
 
 [![Built with Eliza](https://img.shields.io/badge/Built%20with-Eliza%20Framework-purple)](https://github.com/elizaOS/eliza)
 [![Powered by The Org](https://img.shields.io/badge/Powered%20by-The%20Org-blue)](https://github.com/elizaOS/the-org)
@@ -18,7 +18,7 @@ Auto transport coordinators work 56+ hour weeks, can't take vacations, and burn 
 ### The Autonate Solution
 
 A team of specialized AI agents that:
-- 🛡️ **Protects coordinators** - Enforces breaks, prevents overtime, enables actual vacations
+- 🛡️ **Protects coordinators** - Covers breaks, works overtime, enables actual vacations
 - 💝 **Delights customers** - Turns tracking into poetry, detects anxiety, provides real prices
 - 🔮 **Prevents problems** - Predicts delays, vets carriers, reroutes around weather
 - 🎯 **Measures what matters** - Hours given back, stress reduced, problems prevented
@@ -30,7 +30,7 @@ A team of specialized AI agents that:
 | Agent | Role | Superpower |
 |-------|------|------------|
 | **Autonate Prime** | Orchestrator | Coordinates all agents, maintains liberation philosophy |
-| **Wellness Guardian** | Protector | Enforces breaks with the persistence of a caring parent |
+| **Wellness Guardian** | Protector | Covers breaks with the persistence of a caring parent |
 | **Route Oracle** | Predictor | Sees shipping problems before they exist |
 | **Customer Empath** | Comforter | Feels customer emotions before they express them |
 | **Carrier Vettor** | Truth-keeper | Maintains the legendary carrier "black list" |
