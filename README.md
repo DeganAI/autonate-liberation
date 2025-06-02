@@ -1,6 +1,6 @@
 # 🚀 Autonate Liberation Organization
 
-> *"Because shipping cars shouldn't require a PhD in logistics... or a 56-hour work week"*
+> *"Because shipping cars shouldn't require a PhD in logistics... or working 56-hour weeks"*
 
 [![Built with Eliza](https://img.shields.io/badge/Built%20with-Eliza%20Framework-purple)](https://github.com/elizaOS/eliza)
 [![Powered by The Org](https://img.shields.io/badge/Powered%20by-The%20Org-blue)](https://github.com/elizaOS/the-org)
@@ -9,7 +9,7 @@
 
 ## 🌟 What is Autonate?
 
-Autonate is a revolutionary multi-agent AI system that transforms auto transport coordination. Built on [Eliza Framework](https://github.com/elizaOS/eliza) and orchestrated by [The Org](https://github.com/elizaOS/the-org), it's not just another chatbot - it's a liberation movement disguised as software.
+Autonate is a revolutionary multi-agent AI system that transforms auto transport coordination. Built on the incredible [Eliza Framework](https://github.com/elizaOS/eliza) and orchestrated by [The Org](https://github.com/elizaOS/the-org), it's not just another chatbot - it's a liberation movement disguised as software.
 
 ### The Problem We Solve
 
@@ -40,8 +40,8 @@ A team of specialized AI agents that:
 
 ### Prerequisites
 - Node.js 20+
-- Docker
 - [Compute3.ai](https://compute3.ai) account
+- API keys for: Anthropic, OpenAI, Dialpad, Weather API
 - A burning desire to liberate overworked humans
 
 ### Installation
@@ -58,17 +58,13 @@ npm install
 cp .env.example .env
 
 # Configure your environment (see below)
-# Deploy the liberation force
-npm run deploy
+# Deploy to Compute3 (no Docker required!)
+npm run deploy:compute3
 ```
 
-### Sample Environment File (.env.example)
+### Environment Configuration (.env)
 
 ```env
-# ============================================
-# AUTONATE LIBERATION CONFIGURATION
-# ============================================
-
 # Compute3.ai Configuration
 COMPUTE3_API_KEY=your_compute3_api_key_here
 COMPUTE3_ENDPOINT=https://launch.comput3.ai
@@ -125,38 +121,121 @@ NODE_ENV=production
 LOG_LEVEL=info
 ```
 
-## 📊 Liberation Metrics
-
-Once deployed, monitor your liberation success at:
+## 📦 Project Structure
 
 ```
-https://autonate-liberation.compute3.ai/dashboards
+autonate-liberation/
+├── agents/                    # Individual agent implementations
+│   ├── autonate-prime/
+│   ├── wellness-guardian/
+│   ├── route-oracle/
+│   ├── customer-empath/
+│   ├── carrier-vettor/
+│   └── narrative-artist/
+├── characters/               # Eliza character definitions
+│   ├── autonate-character.ts
+│   ├── wellness-guardian.ts
+│   ├── route-oracle.ts
+│   ├── customer-empath.ts
+│   ├── carrier-vettor.ts
+│   └── narrative-artist.ts
+├── plugins/                  # Eliza plugins
+│   ├── dialpad-plugin.ts    # Phone/SMS integration
+│   ├── wellness-plugin.ts    # Coordinator protection
+│   ├── tracking-plugin.ts    # Shipment tracking
+│   └── prediction-plugin.ts  # Predictive analytics
+├── shared/                   # Shared utilities
+│   ├── types.ts             # TypeScript definitions
+│   ├── utils.ts             # Helper functions
+│   └── liberation-metrics.ts # Success tracking
+├── docker/                   # Container configs (optional)
+├── .env.example             # Environment template
+├── .env                     # Your configuration (create this)
+├── compute3.config.json     # Compute3 deployment config
+├── deploy-compute3.js       # No-Docker deployment script
+├── deploy-simulator.js      # Test without API keys
+├── package.json             # Dependencies
+├── tsconfig.json            # TypeScript config
+└── README.md                # You are here!
+```
+
+## 🚀 Deployment Options
+
+### Option 1: Deploy to Compute3 (Recommended - No Docker Required!)
+
+```bash
+# Deploy directly to Compute3 cloud
+npm run deploy:compute3
+```
+
+This will:
+1. Package your agents
+2. Upload to Compute3
+3. Deploy all 6 agents
+4. Set up monitoring
+5. Give you your live URLs
+
+### Option 2: Test Locally First
+
+```bash
+# Run deployment simulator (no API keys needed)
+node deploy-simulator.js
+
+# Check your setup
+node test-build.js
+```
+
+### Option 3: Use Compute3 CLI
+
+```bash
+# Install Compute3 CLI
+npm install -g @compute3/cli
+
+# Login
+compute3 login
+
+# Deploy
+compute3 deploy
+```
+
+## 📊 Monitoring Your Liberation
+
+Once deployed, monitor your impact at:
+
+```
+https://autonate-liberation.compute3.ai/metrics
+```
+
+### Real-Time Monitoring
+
+```bash
+# Watch liberation metrics live
+npm run monitor
 ```
 
 ### What Success Looks Like
 
 ```
-🎯 LIBERATION METRICS - WEEK OF MARCH 15, 2024
-==============================================
+🎯 LIBERATION METRICS - LIVE DASHBOARD
+======================================
 
-HUMAN IMPACT
-- Coordinator Hours Reclaimed: 147 hours
-- Vacations Successfully Taken: 3 (Mike, Sarah, Lisa!)  
-- Average Work Week: 38.5 hours (DOWN from 56!)
-- Stress Interventions: 23 prevented burnouts
-- Lunch Breaks Taken: 100% compliance! 🎉
+COORDINATOR STATUS:
+  📞 Mike: 23 calls | Stress: ████░░░░░░ (40%)
+  ☕ Sarah: 28 calls | Stress: ██░░░░░░░░ (20%) [ON BREAK]
+  📞 John: 15 calls | Stress: ███░░░░░░░ (30%)
+  📞 Lisa: 19 calls | Stress: ██░░░░░░░░ (20%)
 
-CUSTOMER DELIGHT  
-- Satisfaction Score: 94% (UP 31%)
-- Problems Prevented: 89 (vs 12 solved)
-- Poetic Updates Appreciated: 234 "thank yous"
-- Anxiety Successfully Calmed: 156 first-time shippers
+TODAY'S LIBERATION WINS:
+  ⏰ Hours Given Back: 12.5
+  ☕ Breaks Taken: 16
+  🛡️ Problems Prevented: 8
+  😊 Happy Customers: 47
 
-BUSINESS EXCELLENCE
-- Carriers Ghosted: 0 (thanks to vetting)
-- Weather Delays Avoided: 17 proactive reroutes
-- Revenue per Coordinator Hour: UP 67%
-- Fantasy Quotes Given: 0 (keeping it real)
+WEEKLY SUMMARY:
+  - Average Work Week: 38.5 hours (DOWN from 56!)
+  - Stress Levels: ↓ 68%
+  - Vacations Taken: 3 (Mike, Sarah, Lisa!)
+  - Customer Satisfaction: 94% (UP 31%)
 ```
 
 ## 🛠️ Development
@@ -164,64 +243,81 @@ BUSINESS EXCELLENCE
 ### Running Locally
 
 ```bash
-# Start all agents in development mode
+# Install dependencies
+npm install
+
+# Set up environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Build TypeScript
+npm run build
+
+# Run tests
+npm test
+
+# Start development mode
 npm run dev
-
-# Run specific agent
-npm run dev:agent wellness-guardian
-
-# Monitor liberation metrics
-npm run monitor
-
-# Run liberation tests
-npm run test:liberation
 ```
 
-### Adding a New Agent
+### Adding New Features
 
-1. Create character in `/characters`
-2. Define role and responsibilities
-3. Add to organization config
-4. Deploy with `npm run deploy`
+1. **New Agent**: Create character in `/characters`, add to deployment config
+2. **New Plugin**: Add to `/plugins`, register with agents
+3. **New Metric**: Update `liberation-metrics.ts`
 
-### Testing Philosophy
+## 🐛 Troubleshooting
 
-We test for liberation, not just functionality:
+### Common Issues
 
-```javascript
-describe('Wellness Guardian', () => {
-  it('should enforce break after 2 hours', async () => {
-    // Not just checking the code works
-    // Checking that humans get their breaks!
-  });
-  
-  it('should prevent coordinator from skipping lunch', async () => {
-    // Because lunch isn't optional, it's necessary
-  });
-});
+**"type": "module" error**
+```bash
+# Run our fix script
+node fix-setup.cjs
 ```
 
-## 🎨 Architecture
-
-```mermaid
-graph TD
-    A[Customer Message] --> B[Autonate Prime]
-    B --> C{Emotional State?}
-    C -->|Anxious| D[Customer Empath]
-    C -->|Normal| E[Process Request]
-    
-    B --> F[Wellness Guardian]
-    F --> G{Coordinator Stressed?}
-    G -->|Yes| H[Route to AI]
-    G -->|No| I[Route to Human]
-    
-    B --> J[Route Oracle]
-    J --> K{Weather Risk?}
-    K -->|Yes| L[Predictive Reroute]
-    
-    B --> M[Narrative Artist]
-    M --> N[Transform Update to Poetry]
+**Missing API keys**
+```bash
+# Check what's missing
+node deploy-simulator.js
 ```
+
+**TypeScript errors**
+```bash
+# Fix syntax errors
+npm run fix:ts
+```
+
+**Can't connect to Compute3**
+- Check your API key is valid
+- Ensure you're connected to internet
+- Try: `curl https://compute3.ai/health`
+
+## 🎯 Key Features
+
+### 🛡️ Coordinator Protection
+- Automatic break enforcement after 2 hours
+- Stress-based call routing
+- Vacation mode (AI handles everything)
+- Real-time wellness monitoring
+
+### 💝 Customer Experience
+- Anxiety detection and empathetic responses
+- Poetic tracking narratives
+- Real pricing (no fantasy quotes)
+- Proactive problem prevention
+
+### 🔮 Predictive Intelligence
+- Weather-based route optimization
+- Carrier reliability prediction
+- Delay prevention (not just notification)
+- Pattern-based issue forecasting
+
+### 📊 Liberation Metrics
+- Hours given back to coordinators
+- Stress levels reduced
+- Problems prevented
+- Vacations successfully taken
 
 ## 🤝 Contributing
 
@@ -240,44 +336,61 @@ We welcome contributions that align with our liberation philosophy:
 - Test for liberation impact, not just functionality
 - Document with empathy and humor
 
-## 📜 License
-
-MIT License - Because liberation should be free
-
 ## 🙏 Acknowledgments
 
 ### Special Thanks to Eliza Framework
 
-This project wouldn't exist without the incredible [Eliza Framework](https://github.com/elizaOS/eliza) by the elizaOS team. Eliza provides the foundation that makes our agents intelligent, empathetic, and capable of true conversation. If you're building AI agents that need to understand and connect with humans, Eliza is the way.
+This project wouldn't exist without the incredible [Eliza Framework](https://github.com/elizaOS/eliza) by the elizaOS team. Eliza provides the foundation that makes our agents intelligent, empathetic, and capable of true conversation.
 
 ### Built with The Org
 
-Multi-agent orchestration powered by [The Org](https://github.com/elizaOS/the-org), which lets our specialized agents work together like a well-coordinated team. The Org makes it possible for Wellness Guardian to protect coordinators while Route Oracle prevents problems and Narrative Artist delights customers - all in perfect harmony.
+Multi-agent orchestration powered by [The Org](https://github.com/elizaOS/the-org), which lets our specialized agents work together like a well-coordinated liberation force.
 
-### Our Heroes
+### Deployed on Compute3
 
-- Every coordinator who's ever missed their kid's game because of work
-- Every customer who's been lied to about shipping prices
-- Every carrier who actually shows up when they say they will
-- The elizaOS community for building tools that make liberation possible
+Seamless deployment thanks to [Compute3.ai](https://compute3.ai), who handle all the infrastructure so we can focus on liberation.
+
+## 📜 License
+
+MIT License - Because liberation should be free
+
+## 🚀 Getting Started
+
+1. **Clone this repo**
+   ```bash
+   git clone https://github.com/your-org/autonate-liberation
+   cd autonate-liberation
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Add your API keys to .env
+   ```
+
+4. **Deploy to Compute3**
+   ```bash
+   npm run deploy:compute3
+   ```
+
+5. **Celebrate!** 🎉
+   - Visit: https://autonate-liberation.compute3.ai
+   - Monitor: https://autonate-liberation.compute3.ai/metrics
+   - Watch coordinators take actual breaks!
 
 ## 📞 Support
 
-- **Documentation**: https://autonate-liberation.compute3.ai/docs
-- **Liberation Metrics**: https://autonate-liberation.compute3.ai/metrics  
-- **Emergency**: If coordinators are overworked, Wellness Guardian auto-escalates
-- **Community**: Join us in the Eliza Discord!
+- **Live System**: https://autonate-liberation.compute3.ai
+- **Metrics Dashboard**: https://autonate-liberation.compute3.ai/metrics
+- **Agent Status**: https://autonate-liberation.compute3.ai/agents
+- **Issues**: https://github.com/your-org/autonate-liberation/issues
 
-## 🚀 The Future
-
-### Roadmap to Total Liberation
-
-- [ ] Version 2.0: Predictive vacation planning
-- [ ] Version 3.0: Industry-wide wellness standards
-- [ ] Version 4.0: Open source the liberation engine
-- [ ] Version 5.0: Every transport coordinator home by 5 PM
-
-### Join the Movement
+## 🌟 The Liberation Promise
 
 This isn't just about moving cars. It's about proving that AI should give humans their lives back. Every break enforced, every vacation protected, every weekend preserved - that's the real victory.
 
@@ -289,6 +402,6 @@ This isn't just about moving cars. It's about proving that AI should give humans
 
 *Powered by [Eliza](https://github.com/elizaOS/eliza) • Orchestrated by [The Org](https://github.com/elizaOS/the-org) • Deployed on [Compute3.ai](https://compute3.ai)*
 
-**[Start Liberating](https://autonate-liberation.compute3.ai)** | **[View Metrics](https://autonate-liberation.compute3.ai/metrics)** | **[Join Discord](https://discord.gg/eliza)**
+**[Start Liberating](https://autonate-liberation.compute3.ai)** | **[View Metrics](https://autonate-liberation.compute3.ai/metrics)** | **[Join the Movement](https://discord.gg/eliza)**
 
 </div>
