@@ -16,7 +16,6 @@
 **Autonate** is a comprehensive AI workforce that can handle 100% of coordination tasks, Built on enterprise-grade frameworks, it integrates seamlessly with existing systems to deliver immediate operational excellence.
 
 ### The Business Impact
-- **300%+ ROI** within 90 days
 - **68% reduction** in coordinator overtime
 - **94% customer satisfaction** (up from 63%)
 - **Zero missed deadlines** due to human error
