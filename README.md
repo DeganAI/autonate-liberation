@@ -6,8 +6,8 @@
 [![Built with Eliza](https://img.shields.io/badge/Built%20with-Eliza%20Framework-purple)](https://github.com/elizaOS/eliza)
 [![Powered by The Org](https://img.shields.io/badge/Powered%20by-The%20Org-blue)](https://github.com/elizaOS/the-org)
 [![Deploy on Compute3](https://img.shields.io/badge/Deploy%20on-Compute3.ai-green)](https://compute3.ai)
-[![Liberation Status](https://img.shields.io/badge/Status-PRODUCTION%20READY-success)](https://autonate-liberation.compute3.ai/metrics)
-[![ROI](https://img.shields.io/badge/ROI-300%25%2B-brightgreen)]()
+[![Liberation Status](https://img.shields.io/badge/Status-PRODUCTION%20TESTING-success)](https://autonate-liberation.compute3.ai/metrics)
+
 
 ---
 
