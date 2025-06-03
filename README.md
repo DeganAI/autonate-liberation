@@ -115,7 +115,6 @@ A synchronized team of specialized AI agents that handles every aspect of coordi
 
 #### 💬 **Slack Integration**
 - **Team Communication**: Real-time coordination updates and alerts
-- **Customer Notifications**: Direct customer communication through Slack channels
 - **Internal Alerts**: Instant notifications for delays, issues, or opportunities
 - **Workflow Automation**: Automated task creation and assignment
 - **Reporting Dashboards**: Real-time metrics and performance tracking
