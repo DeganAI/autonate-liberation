@@ -1,7 +1,7 @@
 # 🚀 Autonate Liberation Organization
 ### *The Complete AI Revolution for Auto Transport*
 
-> *"We don't replace coordinators—we give them superpowers and their lives back"*
+> *"We don't replace coordinators—we give them superpowers"*
 
 [![Built with Eliza](https://img.shields.io/badge/Built%20with-Eliza%20Framework-purple)](https://github.com/elizaOS/eliza)
 [![Powered by The Org](https://img.shields.io/badge/Powered%20by-The%20Org-blue)](https://github.com/elizaOS/the-org)
