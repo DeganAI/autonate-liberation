@@ -17,7 +17,7 @@
 
 ### The Business Impact
 - **68% reduction** in coordinator overtime
-- **94% customer satisfaction** (up from 63%)
+- **Improved customer satisfaction**
 - **Zero missed deadlines** due to human error
 - **Complete coverage** during vacations, sick days, and breaks
 
