@@ -15,6 +15,44 @@ interface DeploymentConfig {
   environment: 'staging' | 'production';
 }
 
+// Add type definitions for API responses
+interface DeploymentResponse {
+  id: string;
+  status: string;
+  workspace: string;
+  agents: AgentStatus[];
+}
+
+interface AgentStatus {
+  id: string;
+  name: string;
+  status: 'pending' | 'ready' | 'error';
+  replicas: number;
+}
+
+interface MetricsResponse {
+  hoursSaved: number;
+  breaksEnforced: number;
+  problemsPrevented: number;
+  satisfactionScore: number;
+  activeCoordinators: number;
+  onBreak: number;
+  avgStressLevel: number;
+  coordinators: CoordinatorMetric[];
+  todayHoursSaved: number;
+  todayBreaks: number;
+  todayProblemsPrevented: number;
+  todayHappyCustomers: number;
+  alerts: string[];
+}
+
+interface CoordinatorMetric {
+  name: string;
+  onBreak: boolean;
+  callsToday: number;
+  stressLevel: number;
+}
+
 class AutonateDeployer {
   private config: DeploymentConfig;
   private deploymentId: string;
@@ -105,12 +143,24 @@ class AutonateDeployer {
       
       // Create Dockerfile for agent
       const dockerfile = this.generateDockerfile(agent);
-      fs.writeFileSync(`./docker/${agent}/Dockerfile`, dockerfile);
+      const dockerDir = `./docker/${agent}`;
+      
+      // Ensure directory exists
+      if (!fs.existsSync(dockerDir)) {
+        fs.mkdirSync(dockerDir, { recursive: true });
+      }
+      
+      fs.writeFileSync(`${dockerDir}/Dockerfile`, dockerfile);
       
       // Build container
-      execSync(`docker build -t autonate/${agent}:${this.deploymentId} ./docker/${agent}`, {
-        stdio: 'inherit'
-      });
+      try {
+        execSync(`docker build -t autonate/${agent}:${this.deploymentId} -f ${dockerDir}/Dockerfile .`, {
+          stdio: 'inherit'
+        });
+      } catch (error) {
+        console.error(`Failed to build ${agent}:`, error);
+        throw error;
+      }
     }
     
     console.log("✅ All agent containers built");
@@ -144,7 +194,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \\
   CMD node healthcheck.js
 
 # Run the agent
-CMD ["node", "start-agent.js"]
+CMD ["node", "agents/${agentId}/index.js"]
 `;
   }
 
@@ -154,9 +204,14 @@ CMD ["node", "start-agent.js"]
     const registry = `${this.config.workspace}.compute3.ai`;
     
     // Login to registry
-    execSync(`echo ${this.config.compute3ApiKey} | docker login ${registry} -u _token --password-stdin`, {
-      stdio: 'inherit'
-    });
+    try {
+      execSync(`echo ${this.config.compute3ApiKey} | docker login ${registry} -u _token --password-stdin`, {
+        stdio: 'inherit'
+      });
+    } catch (error) {
+      console.error('Failed to login to registry:', error);
+      throw error;
+    }
     
     // Tag and push each container
     const agents = [
@@ -172,8 +227,13 @@ CMD ["node", "start-agent.js"]
       const localTag = `autonate/${agent}:${this.deploymentId}`;
       const remoteTag = `${registry}/${agent}:${this.deploymentId}`;
       
-      execSync(`docker tag ${localTag} ${remoteTag}`, { stdio: 'inherit' });
-      execSync(`docker push ${remoteTag}`, { stdio: 'inherit' });
+      try {
+        execSync(`docker tag ${localTag} ${remoteTag}`, { stdio: 'inherit' });
+        execSync(`docker push ${remoteTag}`, { stdio: 'inherit' });
+      } catch (error) {
+        console.error(`Failed to push ${agent}:`, error);
+        throw error;
+      }
     }
     
     console.log("✅ All containers pushed to registry");
@@ -200,7 +260,7 @@ CMD ["node", "start-agent.js"]
       throw new Error(`Deployment failed: ${error}`);
     }
     
-    const deployment = await response.json();
+    const deployment = await response.json() as DeploymentResponse;
     console.log(`✅ Organization deployed: ${deployment.id}`);
     
     // Wait for all agents to be ready
@@ -223,14 +283,14 @@ CMD ["node", "start-agent.js"]
         }
       );
       
-      const status = await response.json();
+      const status = await response.json() as DeploymentResponse;
       
-      if (status.agents.every((agent: any) => agent.status === 'ready')) {
+      if (status.agents.every((agent) => agent.status === 'ready')) {
         console.log("✅ All agents are ready!");
         return;
       }
       
-      console.log(`  Agents ready: ${status.agents.filter((a: any) => a.status === 'ready').length}/${status.agents.length}`);
+      console.log(`  Agents ready: ${status.agents.filter(a => a.status === 'ready').length}/${status.agents.length}`);
       await new Promise(resolve => setTimeout(resolve, 5000));
     }
     
@@ -400,7 +460,7 @@ CMD ["node", "start-agent.js"]
       }
     );
     
-    const metrics = await response.json();
+    const metrics = await response.json() as MetricsResponse;
     
     console.log("\n🎯 Liberation Metrics:");
     console.log(`  Coordinator Hours Saved: ${metrics.hoursSaved}`);
@@ -461,7 +521,7 @@ export async function monitorLiberation() {
         }
       );
       
-      const metrics = await response.json();
+      const metrics = await response.json() as MetricsResponse;
       
       console.clear();
       console.log("🎯 AUTONATE LIBERATION DASHBOARD");
@@ -469,9 +529,9 @@ export async function monitorLiberation() {
       console.log(`Time: ${new Date().toLocaleTimeString()}`);
       console.log("\nCoordinator Status:");
       
-      metrics.coordinators.forEach((coord: any) => {
+      metrics.coordinators.forEach((coord) => {
         const breakIcon = coord.onBreak ? '☕' : '📞';
-        const stressBar = '█'.repeat(coord.stressLevel) + '░'.repeat(10 - coord.stressLevel);
+        const stressBar = '█'.repeat(Math.floor(coord.stressLevel * 10)) + '░'.repeat(10 - Math.floor(coord.stressLevel * 10));
         console.log(`  ${breakIcon} ${coord.name}: ${coord.callsToday} calls | Stress: ${stressBar}`);
       });
       
@@ -483,7 +543,7 @@ export async function monitorLiberation() {
       
       if (metrics.alerts.length > 0) {
         console.log("\n⚠️ Alerts:");
-        metrics.alerts.forEach((alert: string) => console.log(`  - ${alert}`));
+        metrics.alerts.forEach((alert) => console.log(`  - ${alert}`));
       }
       
     } catch (error) {
