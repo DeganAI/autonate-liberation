@@ -1,0 +1,1438 @@
+// batscrm-plugin.ts - Complete BatsCRM Integration for Autonate Liberation
+import { Plugin, IAgentRuntime, Memory, State, HandlerCallback, Content, Action, Evaluator } from '@ai16z/eliza';
+import axios, { AxiosInstance } from 'axios';
+import { EventEmitter } from 'events';
+import WebSocket from 'ws';
+
+interface BatsCRMConfig {
+    apiKey: string;
+    apiSecret: string;
+    baseUrl: string;
+    websocketUrl?: string;
+    organizationId: string;
+    syncInterval?: number; // in milliseconds
+    enableRealTimeSync?: boolean;
+}
+
+interface Shipment {
+    id: string;
+    orderNumber: string;
+    status: 'quote' | 'booked' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
+    origin: Location;
+    destination: Location;
+    vehicle: Vehicle;
+    customer: Customer;
+    carrier?: Carrier;
+    pricing: Pricing;
+    dates: {
+        created: Date;
+        pickupWindow: DateWindow;
+        deliveryWindow: DateWindow;
+        actualPickup?: Date;
+        actualDelivery?: Date;
+    };
+    notes: Note[];
+    documents: Document[];
+    tracking: TrackingEvent[];
+    flags: ShipmentFlags;
+}
+
+interface Location {
+    address: string;
+    city: string;
+    state: string;
+    zip: string;
+    coordinates?: {
+        lat: number;
+        lng: number;
+    };
+    contactName: string;
+    contactPhone: string;
+    contactEmail?: string;
+    type: 'residential' | 'commercial' | 'terminal' | 'auction';
+    specialInstructions?: string;
+}
+
+interface Vehicle {
+    year: number;
+    make: string;
+    model: string;
+    vin: string;
+    type: 'sedan' | 'suv' | 'truck' | 'van' | 'motorcycle' | 'classic' | 'exotic';
+    condition: 'running' | 'non_running' | 'salvage';
+    modifications?: string[];
+    value?: number;
+    images?: string[];
+}
+
+interface Customer {
+    id: string;
+    name: string;
+    email: string;
+    phone: string;
+    alternatePhone?: string;
+    preferredContact: 'phone' | 'email' | 'sms';
+    rating: number;
+    totalShipments: number;
+    notes: string[];
+    preferences: CustomerPreferences;
+    emotionalState?: 'calm' | 'anxious' | 'frustrated' | 'happy' | 'neutral';
+    vipStatus: boolean;
+}
+
+interface CustomerPreferences {
+    communicationStyle: 'detailed' | 'brief' | 'technical' | 'friendly';
+    updateFrequency: 'hourly' | 'daily' | 'milestone' | 'minimal';
+    preferredCarrierTypes: string[];
+    budgetFlexibility: 'strict' | 'moderate' | 'flexible';
+}
+
+interface Carrier {
+    id: string;
+    name: string;
+    mcNumber: string;
+    dotNumber: string;
+    insurance: {
+        policy: string;
+        expiration: Date;
+        coverage: number;
+    };
+    rating: number;
+    completedJobs: number;
+    onTimePercentage: number;
+    damageClaimRate: number;
+    responseTime: number; // in minutes
+    equipment: string[];
+    serviceAreas: string[];
+    blacklisted: boolean;
+    blacklistReason?: string;
+    preferredRoutes: string[];
+    pricing: {
+        baseRate: number;
+        perMileRate: number;
+        specialHandling: Record<string, number>;
+    };
+}
+
+interface Pricing {
+    customerQuote: number;
+    carrierPay: number;
+    profit: number;
+    breakdown: {
+        base: number;
+        perMile: number;
+        fuel: number;
+        insurance: number;
+        specialHandling: number;
+        expedited: number;
+    };
+    discounts: Discount[];
+    paymentTerms: 'cod' | 'net15' | 'net30' | 'credit_card' | 'ach';
+    depositRequired: boolean;
+    depositAmount?: number;
+}
+
+interface Discount {
+    type: 'percentage' | 'fixed';
+    amount: number;
+    reason: string;
+    approvedBy: string;
+}
+
+interface DateWindow {
+    earliest: Date;
+    latest: Date;
+    preferred?: Date;
+}
+
+interface Note {
+    id: string;
+    timestamp: Date;
+    author: string;
+    type: 'internal' | 'customer' | 'carrier';
+    content: string;
+    sentiment?: 'positive' | 'negative' | 'neutral';
+    actionRequired?: boolean;
+}
+
+interface Document {
+    id: string;
+    type: 'bol' | 'invoice' | 'inspection' | 'insurance' | 'contract' | 'photo';
+    name: string;
+    url: string;
+    uploadedAt: Date;
+    uploadedBy: string;
+}
+
+interface TrackingEvent {
+    timestamp: Date;
+    type: 'pickup' | 'delivery' | 'inspection' | 'delay' | 'location_update' | 'issue';
+    location?: string;
+    description: string;
+    automated: boolean;
+    poeticDescription?: string; // From Narrative Artist
+}
+
+interface ShipmentFlags {
+    expedited: boolean;
+    specialHandling: boolean;
+    highValue: boolean;
+    requiresEnclosed: boolean;
+    inoperable: boolean;
+    oversized: boolean;
+    hazmat: boolean;
+    military: boolean;
+    dealerTrade: boolean;
+}
+
+interface CoordinatorWorkload {
+    coordinatorId: string;
+    activeShipments: number;
+    quotesToProcess: number;
+    urgentIssues: number;
+    todaysCalls: number;
+    stressLevel: number;
+    lastActivity: Date;
+    breakSchedule: Break[];
+}
+
+interface Break {
+    type: 'short' | 'lunch' | 'wellness';
+    startTime: Date;
+    endTime: Date;
+    enforced: boolean;
+}
+
+export class BatsCRMPlugin implements Plugin {
+    name = 'batscrm-plugin';
+    description = 'BatsCRM integration for Autonate Liberation - full shipment and customer management';
+    
+    private api: AxiosInstance;
+    private config: BatsCRMConfig;
+    private runtime: IAgentRuntime;
+    private ws: WebSocket | null = null;
+    private eventEmitter: EventEmitter;
+    private syncTimer: NodeJS.Timer | null = null;
+    private coordinatorWorkloads: Map<string, CoordinatorWorkload> = new Map();
+    private carrierBlacklist: Set<string> = new Set();
+
+    constructor(config: BatsCRMConfig) {
+        this.config = config;
+        this.eventEmitter = new EventEmitter();
+        
+        // Setup API client
+        this.api = axios.create({
+            baseURL: config.baseUrl,
+            headers: {
+                'X-API-Key': config.apiKey,
+                'X-API-Secret': config.apiSecret,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        // Setup request/response interceptors
+        this.setupInterceptors();
+    }
+
+    async init(runtime: IAgentRuntime): Promise<void> {
+        this.runtime = runtime;
+        console.log('🦇 BatsCRM Plugin initialized for Autonate Liberation');
+        
+        // Connect to websocket for real-time updates
+        if (this.config.enableRealTimeSync && this.config.websocketUrl) {
+            await this.connectWebSocket();
+        }
+
+        // Start sync process
+        this.startSync();
+
+        // Load initial data
+        await this.loadInitialData();
+    }
+
+    private setupInterceptors() {
+        // Request interceptor for auth
+        this.api.interceptors.request.use(
+            (config) => {
+                // Add timestamp for request tracking
+                config.headers['X-Request-Time'] = Date.now();
+                return config;
+            },
+            (error) => {
+                console.error('BatsCRM request error:', error);
+                return Promise.reject(error);
+            }
+        );
+
+        // Response interceptor for error handling
+        this.api.interceptors.response.use(
+            (response) => {
+                // Track response time
+                const requestTime = response.config.headers['X-Request-Time'];
+                if (requestTime) {
+                    const responseTime = Date.now() - parseInt(requestTime);
+                    console.log(`BatsCRM API response time: ${responseTime}ms`);
+                }
+                return response;
+            },
+            async (error) => {
+                if (error.response?.status === 401) {
+                    // Handle auth refresh
+                    await this.refreshAuth();
+                    return this.api.request(error.config);
+                }
+                return Promise.reject(error);
+            }
+        );
+    }
+
+    private async connectWebSocket() {
+        const wsUrl = `${this.config.websocketUrl}?apiKey=${this.config.apiKey}`;
+        
+        this.ws = new WebSocket(wsUrl);
+
+        this.ws.on('open', () => {
+            console.log('🦇 BatsCRM WebSocket connected');
+            this.subscribeToEvents();
+        });
+
+        this.ws.on('message', (data: string) => {
+            this.handleWebSocketMessage(JSON.parse(data));
+        });
+
+        this.ws.on('error', (error) => {
+            console.error('BatsCRM WebSocket error:', error);
+        });
+
+        this.ws.on('close', () => {
+            console.log('BatsCRM WebSocket disconnected, reconnecting...');
+            setTimeout(() => this.connectWebSocket(), 5000);
+        });
+    }
+
+    private subscribeToEvents() {
+        if (!this.ws) return;
+
+        // Subscribe to relevant events
+        this.ws.send(JSON.stringify({
+            action: 'subscribe',
+            events: [
+                'shipment.created',
+                'shipment.updated',
+                'shipment.cancelled',
+                'customer.updated',
+                'carrier.updated',
+                'coordinator.stress_high',
+                'quote.requested',
+                'issue.created'
+            ]
+        }));
+    }
+
+    private handleWebSocketMessage(message: any) {
+        const { event, data } = message;
+
+        switch (event) {
+            case 'shipment.created':
+                this.handleNewShipment(data);
+                break;
+            case 'shipment.updated':
+                this.handleShipmentUpdate(data);
+                break;
+            case 'customer.updated':
+                this.handleCustomerUpdate(data);
+                break;
+            case 'coordinator.stress_high':
+                this.handleHighStress(data);
+                break;
+            case 'quote.requested':
+                this.handleQuoteRequest(data);
+                break;
+            case 'issue.created':
+                this.handleNewIssue(data);
+                break;
+        }
+
+        // Emit event for agents to handle
+        this.eventEmitter.emit(event, data);
+    }
+
+    private async startSync() {
+        // Sync data periodically
+        const interval = this.config.syncInterval || 5 * 60 * 1000; // 5 minutes default
+        
+        this.syncTimer = setInterval(async () => {
+            await this.syncData();
+        }, interval);
+
+        // Initial sync
+        await this.syncData();
+    }
+
+    private async syncData() {
+        try {
+            // Sync shipments
+            await this.syncShipments();
+            
+            // Sync coordinator workloads
+            await this.syncCoordinatorWorkloads();
+            
+            // Update carrier blacklist
+            await this.updateCarrierBlacklist();
+            
+            console.log('🦇 BatsCRM sync completed');
+        } catch (error) {
+            console.error('BatsCRM sync error:', error);
+        }
+    }
+
+    private async loadInitialData() {
+        try {
+            // Load carrier blacklist
+            const blacklistResponse = await this.api.get('/carriers/blacklist');
+            blacklistResponse.data.forEach((carrier: any) => {
+                this.carrierBlacklist.add(carrier.mcNumber);
+            });
+
+            // Load coordinator workloads
+            const workloadResponse = await this.api.get('/coordinators/workloads');
+            workloadResponse.data.forEach((workload: CoordinatorWorkload) => {
+                this.coordinatorWorkloads.set(workload.coordinatorId, workload);
+            });
+
+            console.log('🦇 BatsCRM initial data loaded');
+        } catch (error) {
+            console.error('Failed to load initial BatsCRM data:', error);
+        }
+    }
+
+    // Core shipment operations
+    async createShipment(shipmentData: Partial<Shipment>): Promise<Shipment> {
+        try {
+            const response = await this.api.post('/shipments', shipmentData);
+            const shipment = response.data;
+
+            // Add AI-generated notes
+            await this.addAINote(shipment.id, 'Shipment created by Autonate Liberation system');
+
+            // Check for any immediate issues
+            await this.runShipmentDiagnostics(shipment);
+
+            return shipment;
+        } catch (error) {
+            console.error('Failed to create shipment:', error);
+            throw error;
+        }
+    }
+
+    async getShipment(shipmentId: string): Promise<Shipment | null> {
+        try {
+            const response = await this.api.get(`/shipments/${shipmentId}`);
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    async updateShipment(shipmentId: string, updates: Partial<Shipment>): Promise<Shipment> {
+        try {
+            const response = await this.api.patch(`/shipments/${shipmentId}`, updates);
+            const shipment = response.data;
+
+            // Log update
+            await this.addAINote(shipmentId, `Shipment updated: ${Object.keys(updates).join(', ')}`);
+
+            return shipment;
+        } catch (error) {
+            console.error('Failed to update shipment:', error);
+            throw error;
+        }
+    }
+
+    async searchShipments(criteria: any): Promise<Shipment[]> {
+        try {
+            const response = await this.api.post('/shipments/search', criteria);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to search shipments:', error);
+            return [];
+        }
+    }
+
+    // Customer operations
+    async getCustomer(customerId: string): Promise<Customer | null> {
+        try {
+            const response = await this.api.get(`/customers/${customerId}`);
+            return response.data;
+        } catch (error) {
+            if (error.response?.status === 404) {
+                return null;
+            }
+            throw error;
+        }
+    }
+
+    async updateCustomerEmotionalState(customerId: string, state: string): Promise<void> {
+        try {
+            await this.api.patch(`/customers/${customerId}`, {
+                emotionalState: state
+            });
+
+            // If customer is anxious or frustrated, alert Customer Empath
+            if (state === 'anxious' || state === 'frustrated') {
+                this.eventEmitter.emit('customer.needs_attention', {
+                    customerId,
+                    emotionalState: state
+                });
+            }
+        } catch (error) {
+            console.error('Failed to update customer emotional state:', error);
+        }
+    }
+
+    async getCustomerHistory(customerId: string): Promise<any> {
+        try {
+            const response = await this.api.get(`/customers/${customerId}/history`);
+            return response.data;
+        } catch (error) {
+            console.error('Failed to get customer history:', error);
+            return { shipments: [], notes: [], interactions: [] };
+        }
+    }
+
+    // Carrier operations
+    async searchCarriers(route: { origin: string; destination: string }, requirements: any): Promise<Carrier[]> {
+        try {
+            const response = await this.api.post('/carriers/search', {
+                route,
+                requirements,
+                excludeBlacklisted: true
+            });
+
+            // Filter out blacklisted carriers locally as well
+            const carriers = response.data.filter((carrier: Carrier) => 
+                !this.carrierBlacklist.has(carrier.mcNumber)
+            );
+
+            // Sort by reliability score
+            return carriers.sort((a: Carrier, b: Carrier) => {
+                const scoreA = this.calculateCarrierScore(a);
+                const scoreB = this.calculateCarrierScore(b);
+                return scoreB - scoreA;
+            });
+        } catch (error) {
+            console.error('Failed to search carriers:', error);
+            return [];
+        }
+    }
+
+    async blacklistCarrier(carrierId: string, reason: string): Promise<void> {
+        try {
+            await this.api.post(`/carriers/${carrierId}/blacklist`, { reason });
+            
+            // Update local blacklist
+            const carrier = await this.getCarrier(carrierId);
+            if (carrier) {
+                this.carrierBlacklist.add(carrier.mcNumber);
+            }
+
+            // Notify team
+            this.eventEmitter.emit('carrier.blacklisted', { carrierId, reason });
+        } catch (error) {
+            console.error('Failed to blacklist carrier:', error);
+        }
+    }
+
+    private async getCarrier(carrierId: string): Promise<Carrier | null> {
+        try {
+            const response = await this.api.get(`/carriers/${carrierId}`);
+            return response.data;
+        } catch (error) {
+            return null;
+        }
+    }
+
+    // Quote operations
+    async generateQuote(quoteRequest: any): Promise<any> {
+        try {
+            // Get base pricing
+            const pricingResponse = await this.api.post('/pricing/calculate', quoteRequest);
+            const basePricing = pricingResponse.data;
+
+            // Apply AI adjustments based on various factors
+            const adjustedPricing = await this.applyAIPricingAdjustments(basePricing, quoteRequest);
+
+            // Create quote
+            const quoteResponse = await this.api.post('/quotes', {
+                ...quoteRequest,
+                pricing: adjustedPricing,
+                validUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+                generatedBy: 'autonate-liberation'
+            });
+
+            return quoteResponse.data;
+        } catch (error) {
+            console.error('Failed to generate quote:', error);
+            throw error;
+        }
+    }
+
+    private async applyAIPricingAdjustments(basePricing: any, quoteRequest: any): Promise<any> {
+        const adjustments = [];
+
+        // Check route difficulty
+        const routeDifficulty = await this.assessRouteDifficulty(
+            quoteRequest.origin,
+            quoteRequest.destination
+        );
+
+        if (routeDifficulty > 0.7) {
+            adjustments.push({
+                type: 'percentage',
+                amount: 10,
+                reason: 'Challenging route conditions'
+            });
+        }
+
+        // Check seasonal factors
+        const seasonalFactor = this.getSeasonalPricingFactor();
+        if (seasonalFactor !== 1) {
+            adjustments.push({
+                type: 'percentage',
+                amount: (seasonalFactor - 1) * 100,
+                reason: 'Seasonal demand adjustment'
+            });
+        }
+
+        // Apply adjustments
+        let finalPrice = basePricing.customerQuote;
+        adjustments.forEach(adj => {
+            if (adj.type === 'percentage') {
+                finalPrice *= (1 + adj.amount / 100);
+            } else {
+                finalPrice += adj.amount;
+            }
+        });
+
+        return {
+            ...basePricing,
+            customerQuote: Math.round(finalPrice),
+            adjustments
+        };
+    }
+
+    // Tracking operations
+    async addTrackingUpdate(shipmentId: string, update: Partial<TrackingEvent>): Promise<void> {
+        try {
+            // Get poetic description from Narrative Artist
+            const poeticDescription = await this.generatePoeticDescription(update);
+
+            await this.api.post(`/shipments/${shipmentId}/tracking`, {
+                ...update,
+                timestamp: new Date(),
+                automated: true,
+                poeticDescription
+            });
+
+            // Notify customer if milestone event
+            if (['pickup', 'delivery'].includes(update.type || '')) {
+                this.eventEmitter.emit('tracking.milestone', {
+                    shipmentId,
+                    update: { ...update, poeticDescription }
+                });
+            }
+        } catch (error) {
+            console.error('Failed to add tracking update:', error);
+        }
+    }
+
+    private async generatePoeticDescription(update: Partial<TrackingEvent>): Promise<string> {
+        // This would integrate with Narrative Artist agent
+        const descriptions: Record<string, string[]> = {
+            pickup: [
+                "Your chariot begins its journey under azure skies",
+                "The adventure commences as your vehicle embraces the open road",
+                "Like a ship setting sail, your car embarks on its voyage"
+            ],
+            in_transit: [
+                "Cruising through landscapes painted by nature's brush",
+                "Your vehicle dances with the highway's rhythm",
+                "Mile by mile, your treasure approaches its destination"
+            ],
+            delivery: [
+                "Journey's end approaches like a sunrise on the horizon",
+                "Your faithful steed nears its new stable",
+                "The final chapter of this voyage draws to a close"
+            ]
+        };
+
+        const options = descriptions[update.type || 'in_transit'] || descriptions.in_transit;
+        return options[Math.floor(Math.random() * options.length)];
+    }
+
+    // Coordinator operations
+    async getCoordinatorWorkload(coordinatorId: string): Promise<CoordinatorWorkload | null> {
+        return this.coordinatorWorkloads.get(coordinatorId) || null;
+    }
+
+    async enforceCoordinatorBreak(coordinatorId: string, breakType: 'short' | 'lunch' | 'wellness'): Promise<void> {
+        try {
+            const duration = breakType === 'lunch' ? 60 : breakType === 'wellness' ? 30 : 15;
+            
+            await this.api.post(`/coordinators/${coordinatorId}/breaks`, {
+                type: breakType,
+                startTime: new Date(),
+                endTime: new Date(Date.now() + duration * 60 * 1000),
+                enforced: true
+            });
+
+            // Redistribute workload
+            await this.redistributeWorkload(coordinatorId);
+
+            // Update local state
+            const workload = this.coordinatorWorkloads.get(coordinatorId);
+            if (workload) {
+                workload.breakSchedule.push({
+                    type: breakType,
+                    startTime: new Date(),
+                    endTime: new Date(Date.now() + duration * 60 * 1000),
+                    enforced: true
+                });
+            }
+
+            this.eventEmitter.emit('coordinator.break_started', {
+                coordinatorId,
+                breakType,
+                duration
+            });
+        } catch (error) {
+            console.error('Failed to enforce coordinator break:', error);
+        }
+    }
+
+    private async redistributeWorkload(coordinatorId: string): Promise<void> {
+        try {
+            // Get coordinator's active shipments
+            const response = await this.api.get(`/coordinators/${coordinatorId}/shipments`);
+            const shipments = response.data;
+
+            // Find available coordinators
+            const availableCoordinators = Array.from(this.coordinatorWorkloads.entries())
+                .filter(([id, workload]) => 
+                    id !== coordinatorId && 
+                    workload.stressLevel < 0.7 &&
+                    workload.activeShipments < 20
+                )
+                .sort((a, b) => a[1].activeShipments - b[1].activeShipments);
+
+            // Redistribute shipments
+            for (let i = 0; i < shipments.length && i < availableCoordinators.length; i++) {
+                const shipment = shipments[i];
+                const [newCoordinatorId] = availableCoordinators[i % availableCoordinators.length];
+
+                await this.api.patch(`/shipments/${shipment.id}`, {
+                    coordinatorId: newCoordinatorId
+                });
+            }
+
+            console.log(`Redistributed ${shipments.length} shipments from coordinator ${coordinatorId}`);
+        } catch (error) {
+            console.error('Failed to redistribute workload:', error);
+        }
+    }
+
+    // Analytics and reporting
+    async generateLiberationMetrics(): Promise<any> {
+        try {
+            const response = await this.api.get('/analytics/liberation-metrics', {
+                params: {
+                    startDate: new Date(Date.now() - 24 * 60 * 60 * 1000), // Last 24 hours
+                    endDate: new Date()
+                }
+            });
+
+            const metrics = response.data;
+
+            // Calculate additional liberation-specific metrics
+            const liberationScore = this.calculateLiberationScore(metrics);
+            const wellnessImpact = this.calculateWellnessImpact(metrics);
+
+            return {
+                ...metrics,
+                liberationScore,
+                wellnessImpact,
+                coordinatorHappiness: await this.assessCoordinatorHappiness()
+            };
+        } catch (error) {
+            console.error('Failed to generate liberation metrics:', error);
+            return null;
+        }
+    }
+
+    private calculateLiberationScore(metrics: any): number {
+        // Complex scoring based on multiple factors
+        const factors = {
+            breaksEnforced: (metrics.breaksEnforced || 0) * 2,
+            overtimePreventedHours: (metrics.overtimePreventedHours || 0) * 3,
+            stressReduction: (metrics.averageStressReduction || 0) * 100,
+            customerSatisfaction: (metrics.customerSatisfaction || 0),
+            problemsPrevented: (metrics.problemsPrevented || 0) * 1.5
+        };
+
+        const totalScore = Object.values(factors).reduce((sum, val) => sum + val, 0);
+        const maxScore = 500; // Theoretical maximum
+
+        return Math.min(Math.round((totalScore / maxScore) * 100), 100);
+    }
+
+    private calculateWellnessImpact(metrics: any): any {
+        return {
+            stressReduction: `${metrics.averageStressReduction || 0}%`,
+            breakCompliance: `${metrics.breakComplianceRate || 0}%`,
+            workLifeBalance: this.calculateWorkLifeBalance(metrics),
+            burnoutPrevention: metrics.coordinatorsAtRisk === 0 ? 'SUCCESS' : 'IN_PROGRESS'
+        };
+    }
+
+    private calculateWorkLifeBalance(metrics: any): string {
+        const avgHoursPerWeek = metrics.averageHoursPerWeek || 56;
+        if (avgHoursPerWeek <= 40) return 'EXCELLENT';
+        if (avgHoursPerWeek <= 45) return 'GOOD';
+        if (avgHoursPerWeek <= 50) return 'IMPROVING';
+        return 'NEEDS_ATTENTION';
+    }
+
+    private async assessCoordinatorHappiness(): Promise<number> {
+        // Aggregate happiness score from various factors
+        let totalScore = 0;
+        let coordinatorCount = 0;
+
+        for (const [id, workload] of this.coordinatorWorkloads) {
+            const happiness = 100 - (workload.stressLevel * 50) - 
+                             (Math.max(0, workload.activeShipments - 15) * 2) -
+                             (Math.max(0, workload.todaysCalls - 30) * 1);
+            
+            totalScore += Math.max(0, happiness);
+            coordinatorCount++;
+        }
+
+        return coordinatorCount > 0 ? Math.round(totalScore / coordinatorCount) : 0;
+    }
+
+    // Event handlers
+    private async handleNewShipment(shipment: Shipment) {
+        // Run diagnostics
+        await this.runShipmentDiagnostics(shipment);
+
+        // Assign to least stressed coordinator
+        const coordinator = await this.findBestCoordinator(shipment);
+        if (coordinator) {
+            await this.updateShipment(shipment.id, { coordinatorId: coordinator });
+        }
+
+        // Check for VIP customer
+        if (shipment.customer.vipStatus) {
+            this.eventEmitter.emit('vip.shipment_created', shipment);
+        }
+    }
+
+    private async handleShipmentUpdate(update: any) {
+        const { shipmentId, changes } = update;
+
+        // Check if update indicates a problem
+        if (changes.status === 'delayed' || changes.status === 'issue') {
+            this.eventEmitter.emit('shipment.problem_detected', {
+                shipmentId,
+                problem: changes
+            });
+        }
+
+        // Update customer on significant changes
+        if (['dispatched', 'in_transit', 'delivered'].includes(changes.status)) {
+            await this.notifyCustomer(shipmentId, changes);
+        }
+    }
+
+    private async handleCustomerUpdate(update: any) {
+        const { customerId, changes } = update;
+
+        // Check emotional state changes
+        if (changes.emotionalState && 
+            ['anxious', 'frustrated'].includes(changes.emotionalState)) {
+            this.eventEmitter.emit('customer.needs_empathy', {
+                customerId,
+                emotionalState: changes.emotionalState
+            });
+        }
+    }
+
+    private async handleHighStress(data: any) {
+        const { coordinatorId, stressLevel } = data;
+
+        // Immediate intervention
+        if (stressLevel > 0.8) {
+            await this.enforceCoordinatorBreak(coordinatorId, 'wellness');
+        }
+
+        // Alert Wellness Guardian
+        this.eventEmitter.emit('wellness.intervention_needed', {
+            coordinatorId,
+            stressLevel,
+            urgency: 'high'
+        });
+    }
+
+    private async handleQuoteRequest(request: any) {
+        try {
+            // Generate quote with AI assistance
+            const quote = await this.generateQuote(request);
+
+            // Check if quote needs special handling
+            if (request.expedited || request.highValue) {
+                this.eventEmitter.emit('quote.special_handling', {
+                    quote,
+                    request
+                });
+            }
+
+            return quote;
+        } catch (error) {
+            console.error('Failed to handle quote request:', error);
+            this.eventEmitter.emit('quote.generation_failed', {
+                request,
+                error: error.message
+            });
+        }
+    }
+
+    private async handleNewIssue(issue: any) {
+        const { shipmentId, type, severity } = issue;
+
+        // Route to appropriate handler based on issue type
+        switch (type) {
+            case 'carrier_no_show':
+                await this.handleCarrierNoShow(shipmentId, issue);
+                break;
+            case 'damage_reported':
+                await this.handleDamageReport(shipmentId, issue);
+                break;
+            case 'customer_complaint':
+                await this.handleCustomerComplaint(shipmentId, issue);
+                break;
+            default:
+                await this.handleGenericIssue(shipmentId, issue);
+        }
+
+        // Alert coordinators if high severity
+        if (severity === 'high') {
+            this.eventEmitter.emit('issue.high_severity', issue);
+        }
+    }
+
+    // Helper methods
+    private async runShipmentDiagnostics(shipment: Shipment): Promise<void> {
+        const diagnostics = [];
+
+        // Check route viability
+        const routeCheck = await this.checkRouteViability(
+            shipment.origin,
+            shipment.destination
+        );
+        if (!routeCheck.viable) {
+            diagnostics.push({
+                type: 'warning',
+                message: `Route issue: ${routeCheck.reason}`
+            });
+        }
+
+        // Check carrier availability
+        const carriers = await this.searchCarriers(
+            {
+                origin: `${shipment.origin.city}, ${shipment.origin.state}`,
+                destination: `${shipment.destination.city}, ${shipment.destination.state}`
+            },
+            shipment.flags
+        );
+
+        if (carriers.length < 3) {
+            diagnostics.push({
+                type: 'warning',
+                message: 'Limited carrier availability for this route'
+            });
+        }
+
+        // Check dates feasibility
+        const transitTime = await this.estimateTransitTime(
+            shipment.origin,
+            shipment.destination
+        );
+        const windowSize = shipment.dates.deliveryWindow.latest.getTime() - 
+                          shipment.dates.pickupWindow.earliest.getTime();
+        
+        if (transitTime * 1.2 > windowSize) {
+            diagnostics.push({
+                type: 'warning',
+                message: 'Tight delivery window for estimated transit time'
+            });
+        }
+
+        // Save diagnostics
+        if (diagnostics.length > 0) {
+            await this.addAINote(
+                shipment.id,
+                `Diagnostics: ${diagnostics.map(d => d.message).join('; ')}`
+            );
+        }
+    }
+
+    private async checkRouteViability(origin: Location, destination: Location): Promise<any> {
+        // Check for route issues
+        const distance = this.calculateDistance(origin, destination);
+        
+        if (distance > 3000) {
+            return {
+                viable: true,
+                reason: 'Long distance - recommend experienced carrier'
+            };
+        }
+
+        // Check for problematic routes
+        const problematicRoutes = [
+            { origin: 'Alaska', destination: 'Hawaii', reason: 'Requires special shipping' },
+            { origin: 'Maine', destination: 'California', reason: 'Cross-country route' }
+        ];
+
+        for (const route of problematicRoutes) {
+            if (origin.state.includes(route.origin) && 
+                destination.state.includes(route.destination)) {
+                return {
+                    viable: false,
+                    reason: route.reason
+                };
+            }
+        }
+
+        return { viable: true };
+    }
+
+    private calculateDistance(origin: Location, destination: Location): number {
+        // Simple distance calculation (would use real mapping API)
+        if (origin.coordinates && destination.coordinates) {
+            const lat1 = origin.coordinates.lat;
+            const lon1 = origin.coordinates.lng;
+            const lat2 = destination.coordinates.lat;
+            const lon2 = destination.coordinates.lng;
+
+            const R = 3959; // Earth's radius in miles
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Fallback estimation
+        return 1000; // Default estimate
+    }
+
+    private async estimateTransitTime(origin: Location, destination: Location): Promise<number> {
+        const distance = this.calculateDistance(origin, destination);
+        const avgSpeedMPH = 50; // Average transport speed
+        const drivingHoursPerDay = 10;
+        
+        const drivingDays = Math.ceil(distance / (avgSpeedMPH * drivingHoursPerDay));
+        return drivingDays * 24 * 60 * 60 * 1000; // Return in milliseconds
+    }
+
+    private calculateCarrierScore(carrier: Carrier): number {
+        // Comprehensive carrier scoring
+        const weights = {
+            rating: 0.3,
+            onTimePercentage: 0.3,
+            responseTime: 0.2,
+            damageClaimRate: 0.2
+        };
+
+        const scores = {
+            rating: (carrier.rating / 5) * 100,
+            onTimePercentage: carrier.onTimePercentage,
+            responseTime: Math.max(0, 100 - (carrier.responseTime / 60) * 10),
+            damageClaimRate: Math.max(0, 100 - (carrier.damageClaimRate * 100))
+        };
+
+        let totalScore = 0;
+        for (const [metric, weight] of Object.entries(weights)) {
+            totalScore += scores[metric as keyof typeof scores] * weight;
+        }
+
+        return Math.round(totalScore);
+    }
+
+    private async assessRouteDifficulty(origin: string, destination: string): Promise<number> {
+        // Assess route difficulty based on various factors
+        let difficulty = 0.5; // Base difficulty
+
+        // Check distance
+        const distance = origin.length + destination.length; // Simplified
+        if (distance > 20) difficulty += 0.1;
+
+        // Check for known difficult routes
+        const difficultPairs = [
+            ['New York', 'Los Angeles'],
+            ['Chicago', 'Miami'],
+            ['Seattle', 'Houston']
+        ];
+
+        for (const [city1, city2] of difficultPairs) {
+            if ((origin.includes(city1) && destination.includes(city2)) ||
+                (origin.includes(city2) && destination.includes(city1))) {
+                difficulty += 0.2;
+                break;
+            }
+        }
+
+        return Math.min(difficulty, 1);
+    }
+
+    private getSeasonalPricingFactor(): number {
+        const month = new Date().getMonth();
+        
+        // Peak seasons: Summer (June-August) and December
+        if (month >= 5 && month <= 7) return 1.15; // Summer peak
+        if (month === 11) return 1.2; // December peak
+        if (month >= 0 && month <= 2) return 0.9; // Winter slow season
+        
+        return 1; // Normal pricing
+    }
+
+    private async findBestCoordinator(shipment: Shipment): Promise<string | null> {
+        // Find coordinator with lowest stress and appropriate workload
+        const candidates = Array.from(this.coordinatorWorkloads.entries())
+            .filter(([id, workload]) => 
+                workload.stressLevel < 0.7 &&
+                workload.activeShipments < 25 &&
+                workload.urgentIssues === 0
+            )
+            .sort((a, b) => {
+                // Sort by combination of stress and workload
+                const scoreA = a[1].stressLevel * 0.6 + (a[1].activeShipments / 30) * 0.4;
+                const scoreB = b[1].stressLevel * 0.6 + (b[1].activeShipments / 30) * 0.4;
+                return scoreA - scoreB;
+            });
+
+        return candidates.length > 0 ? candidates[0][0] : null;
+    }
+
+    private async notifyCustomer(shipmentId: string, changes: any): Promise<void> {
+        const shipment = await this.getShipment(shipmentId);
+        if (!shipment) return;
+
+        // Generate appropriate message based on change
+        let message = '';
+        let poeticMessage = '';
+
+        switch (changes.status) {
+            case 'dispatched':
+                message = `Great news! Your ${shipment.vehicle.year} ${shipment.vehicle.make} ${shipment.vehicle.model} has been dispatched.`;
+                poeticMessage = await this.generatePoeticDescription({ type: 'pickup' });
+                break;
+            case 'in_transit':
+                message = `Your vehicle is on the move! Currently making its way to ${shipment.destination.city}.`;
+                poeticMessage = await this.generatePoeticDescription({ type: 'in_transit' });
+                break;
+            case 'delivered':
+                message = `Wonderful news! Your vehicle has been successfully delivered!`;
+                poeticMessage = await this.generatePoeticDescription({ type: 'delivery' });
+                break;
+        }
+
+        // Send notification through preferred channel
+        this.eventEmitter.emit('customer.notification', {
+            customerId: shipment.customer.id,
+            shipmentId,
+            message,
+            poeticMessage,
+            preferredContact: shipment.customer.preferredContact
+        });
+    }
+
+    private async handleCarrierNoShow(shipmentId: string, issue: any): Promise<void> {
+        const shipment = await this.getShipment(shipmentId);
+        if (!shipment || !shipment.carrier) return;
+
+        // Blacklist the carrier
+        await this.blacklistCarrier(
+            shipment.carrier.id,
+            'No-show for scheduled pickup'
+        );
+
+        // Find replacement carrier immediately
+        const replacements = await this.searchCarriers(
+            {
+                origin: `${shipment.origin.city}, ${shipment.origin.state}`,
+                destination: `${shipment.destination.city}, ${shipment.destination.state}`
+            },
+            { ...shipment.flags, urgent: true }
+        );
+
+        if (replacements.length > 0) {
+            // Auto-assign best available
+            await this.updateShipment(shipmentId, {
+                carrier: replacements[0],
+                status: 'rescheduled'
+            });
+
+            await this.addAINote(
+                shipmentId,
+                `Carrier no-show handled. Reassigned to ${replacements[0].name}`
+            );
+        }
+
+        // Notify customer with empathy
+        this.eventEmitter.emit('customer.issue_update', {
+            shipmentId,
+            issue: 'carrier_no_show',
+            resolution: replacements.length > 0 ? 'reassigned' : 'searching'
+        });
+    }
+
+    private async handleDamageReport(shipmentId: string, issue: any): Promise<void> {
+        await this.addAINote(
+            shipmentId,
+            `Damage reported: ${issue.description}. Initiating claims process.`
+        );
+
+        // Create damage claim
+        await this.api.post(`/shipments/${shipmentId}/claims`, {
+            type: 'damage',
+            description: issue.description,
+            reportedAt: new Date(),
+            photos: issue.photos || []
+        });
+
+        // Update carrier's damage rate
+        const shipment = await this.getShipment(shipmentId);
+        if (shipment?.carrier) {
+            await this.api.patch(`/carriers/${shipment.carrier.id}/metrics`, {
+                damageClaimRate: { increment: 1 }
+            });
+        }
+
+        // Notify insurance handler
+        this.eventEmitter.emit('insurance.claim_needed', {
+            shipmentId,
+            issue
+        });
+    }
+
+    private async handleCustomerComplaint(shipmentId: string, issue: any): Promise<void> {
+        // Analyze complaint sentiment
+        const sentiment = this.analyzeComplaintSentiment(issue.description);
+        
+        // Update customer emotional state
+        const shipment = await this.getShipment(shipmentId);
+        if (shipment) {
+            await this.updateCustomerEmotionalState(
+                shipment.customer.id,
+                sentiment === 'very_negative' ? 'frustrated' : 'anxious'
+            );
+        }
+
+        // Route to Customer Empath
+        this.eventEmitter.emit('customer.complaint_received', {
+            shipmentId,
+            issue,
+            sentiment,
+            priority: sentiment === 'very_negative' ? 'high' : 'normal'
+        });
+    }
+
+    private async handleGenericIssue(shipmentId: string, issue: any): Promise<void> {
+        await this.addAINote(
+            shipmentId,
+            `Issue reported: ${issue.type} - ${issue.description}`
+        );
+
+        // Determine routing based on issue type
+        this.eventEmitter.emit('issue.generic', {
+            shipmentId,
+            issue
+        });
+    }
+
+    private analyzeComplaintSentiment(text: string): string {
+        const veryNegativeWords = ['terrible', 'awful', 'unacceptable', 'lawsuit', 'fraud'];
+        const negativeWords = ['bad', 'poor', 'disappointed', 'unhappy', 'frustrated'];
+        
+        const lowerText = text.toLowerCase();
+        
+        if (veryNegativeWords.some(word => lowerText.includes(word))) {
+            return 'very_negative';
+        }
+        if (negativeWords.some(word => lowerText.includes(word))) {
+            return 'negative';
+        }
+        
+        return 'neutral';
+    }
+
+    private async addAINote(shipmentId: string, content: string): Promise<void> {
+        try {
+            await this.api.post(`/shipments/${shipmentId}/notes`, {
+                type: 'internal',
+                content,
+                author: 'autonate-liberation-ai',
+                timestamp: new Date(),
+                automated: true
+            });
+        } catch (error) {
+            console.error('Failed to add AI note:', error);
+        }
+    }
+
+    private async syncShipments(): Promise<void> {
+        // Sync active shipments
+        const response = await this.api.get('/shipments/active');
+        const activeShipments = response.data;
+
+        // Update local cache and check for issues
+        for (const shipment of activeShipments) {
+            await this.runShipmentDiagnostics(shipment);
+        }
+    }
+
+    private async syncCoordinatorWorkloads(): Promise<void> {
+        const response = await this.api.get('/coordinators/workloads');
+        const workloads = response.data;
+
+        workloads.forEach((workload: CoordinatorWorkload) => {
+            this.coordinatorWorkloads.set(workload.coordinatorId, workload);
+            
+            // Check if intervention needed
+            if (workload.stressLevel > 0.8) {
+                this.eventEmitter.emit('coordinator.high_stress', workload);
+            }
+        });
+    }
+
+    private async updateCarrierBlacklist(): Promise<void> {
+        const response = await this.api.get('/carriers/blacklist');
+        this.carrierBlacklist.clear();
+        
+        response.data.forEach((carrier: any) => {
+            this.carrierBlacklist.add(carrier.mcNumber);
+        });
+    }
+
+    private async refreshAuth(): Promise<void> {
+        // Refresh authentication token
+        console.log('Refreshing BatsCRM authentication...');
+        // Implementation depends on your auth mechanism
+    }
+
+    // Plugin interface implementations
+    actions: Action[] = [
+        {
+            name: 'CREATE_SHIPMENT',
+            description: 'Create a new shipment in BatsCRM',
+            handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const shipmentData = JSON.parse(message.content.text || '{}');
+                const shipment = await this.createShipment(shipmentData);
+                return {
+                    success: true,
+                    data: shipment
+                };
+            }
+        },
+        {
+            name: 'GET_SHIPMENT_STATUS',
+            description: 'Get current status of a shipment',
+            handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const { shipmentId } = JSON.parse(message.content.text || '{}');
+                const shipment = await this.getShipment(shipmentId);
+                return {
+                    success: !!shipment,
+                    data: shipment
+                };
+            }
+        },
+        {
+            name: 'GENERATE_QUOTE',
+            description: 'Generate a quote for auto transport',
+            handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const quoteRequest = JSON.parse(message.content.text || '{}');
+                const quote = await this.generateQuote(quoteRequest);
+                return {
+                    success: true,
+                    data: quote
+                };
+            }
+        },
+        {
+            name: 'ENFORCE_BREAK',
+            description: 'Enforce a break for a coordinator',
+            handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const { coordinatorId, breakType } = JSON.parse(message.content.text || '{}');
+                await this.enforceCoordinatorBreak(coordinatorId, breakType);
+                return {
+                    success: true,
+                    data: { message: 'Break enforced successfully' }
+                };
+            }
+        },
+        {
+            name: 'CHECK_CARRIER',
+            description: 'Check if a carrier is reliable',
+            handler: async (runtime: IAgentRuntime, message: Memory, state?: State) => {
+                const { carrierId } = JSON.parse(message.content.text || '{}');
+                const carrier = await this.getCarrier(carrierId);
+                const isBlacklisted = carrier ? this.carrierBlacklist.has(carrier.mcNumber) : false;
+                return {
+                    success: true,
+                    data: {
+                        carrier,
+                        isBlacklisted,
+                        score: carrier ? this.calculateCarrierScore(carrier) : 0
+                    }
+                };
+            }
+        }
+    ];
+
+    evaluators: Evaluator[] = [];
+    
+    providers = [];
+
+    // Cleanup
+    async destroy(): Promise<void> {
+        if (this.syncTimer) {
+            clearInterval(this.syncTimer);
+        }
+        
+        if (this.ws) {
+            this.ws.close();
+        }
+        
+        this.eventEmitter.removeAllListeners();
+        console.log('🦇 BatsCRM Plugin destroyed');
+    }
+}
+
+// Export plugin factory
+export const batscrmPlugin = (config: BatsCRMConfig) => new BatsCRMPlugin(config);
+
+// Export types for use in other plugins
+export type { 
+    Shipment, 
+    Customer, 
+    Carrier, 
+    Location, 
+    Vehicle, 
+    TrackingEvent,
+    CoordinatorWorkload 
+};
