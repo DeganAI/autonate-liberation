@@ -10,6 +10,11 @@
                     "deploy:cli":  "node deploy-compute3.js cli",
                     "deploy:simulate":  "node deploy-simulator.js",
                     "test:build":  "node test-build.js",
+                    "@slack/web-api": "^6.9.0",
+                    "@slack/events-api": "^3.0.1",
+                    "@slack/interactive-messages": "^2.0.0",
+                    "axios": "^1.6.0",
+                    "ws": "^8.16.0"
                     "fix:ts":  "npx tsc --noEmit",
                     "monitor":  "ts-node deploy-autonate.ts monitor",
                     "metrics":  "ts-node deploy-autonate.ts metrics",
