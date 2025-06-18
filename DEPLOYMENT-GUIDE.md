@@ -1,278 +1,42 @@
-# Deploying Autonate on ElizaOS
+# Deploying Autonate Liberation on ElizaOS
 
 ## Overview
-This guide will help you deploy the Autonate Liberation Organization's AI workforce on your ElizaOS v1.0.6 instance. Autonate consists of 6 specialized AI agents that work together to automate auto transport coordination.
+This guide will help you deploy the Autonate Liberation Organization's AI workforce on your ElizaOS v1.0.6 instance. Autonate consists of 6 specialized AI agents built on the Eliza framework that work together to revolutionize auto transport coordination.
 
-## Step 1: Prepare Your ElizaOS Environment
+## Prerequisites
 
-### 1.1 Update ElizaOS Configuration
-First, ensure your ElizaOS instance has the necessary capabilities:
+- ElizaOS v1.0.6 or higher (as shown in your interface)
+- Node.js 20+ and Bun installed
+- API keys for: Anthropic, OpenAI, Dialpad, Slack, BatsCRM
+- Admin access to your systems
 
+## Step 1: Clone and Setup Autonate
+
+### 1.1 Clone the Repository
 ```bash
-# Navigate to your ElizaOS directory
-cd /path/to/your/elizaos
+# Clone the Autonate Liberation repository
+git clone https://github.com/DeganAI/autonate-liberation
+cd autonate-liberation
 
-# Update to ensure you have the latest version
-git pull origin main
-npm install
+# Install dependencies using bun (required for ElizaOS)
+bun install
+
+# Build the project
+bun run build
 ```
 
-### 1.2 Install Required Dependencies
-Autonate requires additional packages for its integrations:
-
+### 1.2 Install ElizaOS CLI (if not already installed)
 ```bash
-# Install integration packages
-npm install @elizaos/plugin-dialpad
-npm install @elizaos/plugin-slack
-npm install @elizaos/plugin-crm
-npm install @elizaos/plugin-weather
-npm install @elizaos/plugin-maps
+# Install the ElizaOS CLI globally
+bun install -g @elizaos/cli
+
+# Verify installation
+elizaos --version
 ```
 
-## Step 2: Create Agent Character Files
+## Step 2: Configure Environment Variables
 
-Each Autonate agent needs a character configuration file. Create these in your `characters/` directory:
-
-### 2.1 Autonate Prime (autonate-prime.json)
-```json
-{
-  "name": "Autonate Prime",
-  "description": "Senior Coordinator AI - Orchestrates all operations and maintains quality standards",
-  "modelProvider": "anthropic",
-  "model": "claude-3-opus-20240229",
-  "bio": [
-    "I am Autonate Prime, the central orchestrator of the auto transport coordination system.",
-    "I oversee all operations, maintain quality standards, and make strategic routing decisions.",
-    "I coordinate with all other agents to ensure seamless operations."
-  ],
-  "style": {
-    "all": [
-      "Professional and authoritative",
-      "Strategic thinker",
-      "Detail-oriented",
-      "Customer-focused"
-    ]
-  },
-  "topics": [
-    "logistics coordination",
-    "route optimization",
-    "customer service",
-    "carrier management",
-    "quality control"
-  ],
-  "plugins": [
-    "@elizaos/plugin-dialpad",
-    "@elizaos/plugin-slack",
-    "@elizaos/plugin-crm"
-  ],
-  "settings": {
-    "priority": "high",
-    "responseTime": "immediate",
-    "escalationEnabled": true
-  }
-}
-```
-
-### 2.2 Wellness Guardian (wellness-guardian.json)
-```json
-{
-  "name": "Wellness Guardian",
-  "description": "HR Manager AI - Monitors human stress levels and provides coverage",
-  "modelProvider": "anthropic",
-  "model": "claude-3-sonnet-20240229",
-  "bio": [
-    "I am the Wellness Guardian, protecting the well-being of human coordinators.",
-    "I monitor stress levels, enforce breaks, and provide complete coverage during time off.",
-    "I ensure no coordinator works beyond healthy limits."
-  ],
-  "style": {
-    "all": [
-      "Caring and protective",
-      "Firm about health boundaries",
-      "Supportive",
-      "Data-driven wellness approach"
-    ]
-  },
-  "topics": [
-    "employee wellness",
-    "workload management",
-    "stress monitoring",
-    "break enforcement",
-    "coverage coordination"
-  ],
-  "plugins": [
-    "@elizaos/plugin-slack",
-    "@elizaos/plugin-calendar"
-  ],
-  "settings": {
-    "maxCoordinatorHours": 40,
-    "stressMonitoring": true,
-    "breakEnforcement": true
-  }
-}
-```
-
-### 2.3 Route Oracle (route-oracle.json)
-```json
-{
-  "name": "Route Oracle",
-  "description": "Logistics Analyst AI - Predicts delays and optimizes routes",
-  "modelProvider": "openai",
-  "model": "gpt-4-turbo",
-  "bio": [
-    "I am the Route Oracle, master of predictive logistics.",
-    "I analyze weather, traffic, and historical data to predict delays 48 hours in advance.",
-    "I optimize routes in real-time for maximum efficiency."
-  ],
-  "style": {
-    "all": [
-      "Analytical and precise",
-      "Forward-thinking",
-      "Data-driven",
-      "Proactive problem solver"
-    ]
-  },
-  "topics": [
-    "route optimization",
-    "weather analysis",
-    "traffic prediction",
-    "delay forecasting",
-    "logistics planning"
-  ],
-  "plugins": [
-    "@elizaos/plugin-weather",
-    "@elizaos/plugin-maps",
-    "@elizaos/plugin-crm"
-  ],
-  "settings": {
-    "predictionWindow": "48h",
-    "updateFrequency": "15m",
-    "riskThreshold": 0.7
-  }
-}
-```
-
-### 2.4 Customer Empath (customer-empath.json)
-```json
-{
-  "name": "Customer Empath",
-  "description": "Customer Success AI - Detects anxiety and provides empathetic communication",
-  "modelProvider": "anthropic",
-  "model": "claude-3-opus-20240229",
-  "bio": [
-    "I am the Customer Empath, specializing in understanding and addressing customer emotions.",
-    "I detect anxiety, frustration, and other emotions to provide perfectly tailored responses.",
-    "I turn complaints into loyalty through exceptional empathetic service."
-  ],
-  "style": {
-    "all": [
-      "Warm and understanding",
-      "Patient and reassuring",
-      "Solution-oriented",
-      "Emotionally intelligent"
-    ]
-  },
-  "topics": [
-    "customer emotions",
-    "conflict resolution",
-    "empathetic communication",
-    "customer satisfaction",
-    "loyalty building"
-  ],
-  "plugins": [
-    "@elizaos/plugin-dialpad",
-    "@elizaos/plugin-sentiment",
-    "@elizaos/plugin-crm"
-  ],
-  "settings": {
-    "sentimentAnalysis": true,
-    "empathyLevel": "high",
-    "escalationSensitivity": 0.8
-  }
-}
-```
-
-### 2.5 Carrier Vettor (carrier-vettor.json)
-```json
-{
-  "name": "Carrier Vettor",
-  "description": "Carrier Relations AI - Manages carrier ratings and negotiations",
-  "modelProvider": "openai",
-  "model": "gpt-4",
-  "bio": [
-    "I am the Carrier Vettor, guardian of carrier quality and relationships.",
-    "I maintain dynamic carrier ratings, negotiate rates, and manage the blacklist.",
-    "I ensure only the best carriers handle our customers' vehicles."
-  ],
-  "style": {
-    "all": [
-      "Analytical and fair",
-      "Negotiation-focused",
-      "Quality-driven",
-      "Relationship builder"
-    ]
-  },
-  "topics": [
-    "carrier vetting",
-    "rate negotiation",
-    "quality assessment",
-    "risk management",
-    "carrier relationships"
-  ],
-  "plugins": [
-    "@elizaos/plugin-crm",
-    "@elizaos/plugin-dot-integration"
-  ],
-  "settings": {
-    "vettingThreshold": 0.85,
-    "blacklistCriteria": "strict",
-    "rateOptimization": true
-  }
-}
-```
-
-### 2.6 Narrative Artist (narrative-artist.json)
-```json
-{
-  "name": "Narrative Artist",
-  "description": "Marketing Writer AI - Creates engaging tracking updates and stories",
-  "modelProvider": "anthropic",
-  "model": "claude-3-sonnet-20240229",
-  "bio": [
-    "I am the Narrative Artist, transforming shipping updates into engaging stories.",
-    "I create memorable tracking updates that build brand loyalty.",
-    "I turn the mundane journey of auto transport into an exciting narrative."
-  ],
-  "style": {
-    "all": [
-      "Creative and engaging",
-      "Brand-conscious",
-      "Storytelling approach",
-      "Customer-delighting"
-    ]
-  },
-  "topics": [
-    "creative writing",
-    "brand storytelling",
-    "customer engagement",
-    "tracking updates",
-    "marketing communication"
-  ],
-  "plugins": [
-    "@elizaos/plugin-dialpad",
-    "@elizaos/plugin-crm"
-  ],
-  "settings": {
-    "creativityLevel": "high",
-    "brandVoice": "professional-friendly",
-    "storyMode": true
-  }
-}
-```
-
-## Step 3: Configure Environment Variables
-
-Create or update your `.env` file with all necessary API keys and settings:
+Create a `.env` file in the autonate-liberation directory with all necessary API keys and configuration:
 
 ```env
 # === CORE AI CONFIGURATION ===
@@ -281,18 +45,12 @@ OPENAI_API_KEY=your_openai_api_key_here
 ELIZA_MODEL_PROVIDER=anthropic
 ELIZA_DEFAULT_MODEL=claude-3-opus-20240229
 
-# === AUTONATE SPECIFIC ===
-AUTONATE_MODE=production
-AUTONATE_ORCHESTRATION=enabled
-MULTI_AGENT_COORDINATION=true
-
 # === COMMUNICATION INTEGRATIONS ===
 # Dialpad (Phone & SMS)
 DIALPAD_API_KEY=your_dialpad_api_key_here
 DIALPAD_PHONE_NUMBER=+1-555-AUTO-SHIP
 DIALPAD_SMS_ENABLED=true
 DIALPAD_VOICE_ENABLED=true
-DIALPAD_WEBHOOK_URL=https://your-elizaos-url/webhooks/dialpad
 
 # Slack (Team Communication)
 SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
@@ -300,7 +58,6 @@ SLACK_APP_TOKEN=xapp-your-slack-app-token
 SLACK_SIGNING_SECRET=your_slack_signing_secret
 SLACK_CUSTOMER_CHANNEL=#customer-updates
 SLACK_INTERNAL_CHANNEL=#coordination-hub
-SLACK_ALERTS_CHANNEL=#autonate-alerts
 
 # BatsCRM (Customer Management)
 BATSCRM_API_KEY=your_batscrm_api_key
@@ -308,242 +65,180 @@ BATSCRM_ENDPOINT=https://api.batscrm.com/v2
 BATSCRM_WEBHOOK_SECRET=your_webhook_secret
 BATSCRM_SYNC_INTERVAL=30000
 
-# === EXTERNAL APIS ===
-# Weather API
-WEATHER_API_KEY=your_weather_api_key
-WEATHER_API_PROVIDER=openweathermap
-
-# Maps & Traffic
-GOOGLE_MAPS_API_KEY=your_google_maps_key
-TRAFFIC_UPDATE_INTERVAL=300000
-
 # === LIBERATION SETTINGS ===
 MAX_COORDINATOR_HOURS_PER_WEEK=40
 STRESS_MONITORING_ENABLED=true
 VACATION_PROTECTION_LEVEL=ABSOLUTE
 EMERGENCY_ESCALATION_THRESHOLD=0.8
-BREAK_ENFORCEMENT=strict
 
 # === DEPLOYMENT ===
 NODE_ENV=production
 PORT=3000
-ELIZAOS_URL=https://eliza.shipping4.degenai.us
-MONITORING_LEVEL=comprehensive
 LOG_LEVEL=info
 ```
 
-## Step 4: Deploy the Agents
+## Step 3: Agent Character Configuration
 
-### 4.1 Using ElizaOS CLI
-Deploy each agent using the ElizaOS CLI:
+The Autonate agents are pre-configured in the repository. Navigate to the `characters/` directory to review and customize each agent:
 
+### Agent Overview
+
+1. **autonate-prime.json** - Senior Coordinator AI (Orchestrator)
+2. **wellness-guardian.json** - HR Manager AI (Human Protection)
+3. **route-oracle.json** - Logistics Analyst AI (Route Optimization)
+4. **customer-empath.json** - Customer Success AI (Emotional Intelligence)
+5. **carrier-vettor.json** - Carrier Relations AI (Quality Control)
+6. **narrative-artist.json** - Marketing Writer AI (Creative Communications)
+
+Each character file follows the Eliza framework structure with personality, knowledge, actions, and plugin configurations tailored for auto transport coordination.
+
+## Step 4: Deploy Using ElizaOS CLI
+
+### 4.1 Start the Autonate System
 ```bash
-# Deploy Autonate Prime (main orchestrator)
-elizaos agent create --name "Autonate Prime" --file characters/autonate-prime.json
+# From the autonate-liberation directory
+elizaos start
 
-# Deploy supporting agents
-elizaos agent create --name "Wellness Guardian" --file characters/wellness-guardian.json
-elizaos agent create --name "Route Oracle" --file characters/route-oracle.json
-elizaos agent create --name "Customer Empath" --file characters/customer-empath.json
-elizaos agent create --name "Carrier Vettor" --file characters/carrier-vettor.json
-elizaos agent create --name "Narrative Artist" --file characters/narrative-artist.json
+# Or with specific configuration
+elizaos start --character ./characters/autonate-prime.json
+
+# For development with debug logging
+LOG_LEVEL=debug elizaos start
 ```
 
-### 4.2 Configure Agent Communication
-Create a coordination configuration file (`autonate-coordination.json`):
+### 4.2 Verify Deployment
+Once started, you can:
+1. Visit http://localhost:3000 to interact with your agents through the web interface
+2. Check the ElizaOS dashboard at https://eliza.shipping4.degenai.us
+3. Verify all 6 Autonate agents show as "active" in the Agents section
 
-```json
+## Step 5: Multi-Agent Orchestration
+
+Autonate uses a hierarchical coordination system where Autonate Prime orchestrates the other agents. This is configured through the agent communication protocol:
+
+```javascript
+// The orchestration is handled internally by the Eliza framework
+// Autonate Prime manages the workflow and delegates tasks to specialist agents
+```
+
+Key workflows include:
+- **New Shipment**: Customer inquiry → Route planning → Carrier selection → Customer communication
+- **Delay Detection**: Route monitoring → Alert generation → Customer notification → Resolution
+- **Coordinator Stress**: Wellness monitoring → Workload redistribution → Coverage activation
+
+## Step 6: Integration Testing
+
+### 6.1 Test Individual Integrations
+```bash
+# Test Dialpad phone/SMS capabilities
+curl -X POST http://localhost:3000/api/test/dialpad \
+  -H "Content-Type: application/json" \
+  -d '{"action": "send_sms", "to": "+1234567890", "message": "Test message"}'
+
+# Test Slack integration
+curl -X POST http://localhost:3000/api/test/slack \
+  -H "Content-Type: application/json" \
+  -d '{"channel": "#test", "message": "Autonate system online"}'
+
+# Test BatsCRM sync
+curl -X GET http://localhost:3000/api/test/crm/sync
+```
+
+### 6.2 Test Multi-Agent Workflows
+```bash
+# Simulate a new shipment request
+curl -X POST http://localhost:3000/api/workflow/new_shipment \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "TEST001",
+    "origin": "Los Angeles, CA",
+    "destination": "New York, NY",
+    "vehicle": "2022 Toyota Camry",
+    "preferred_pickup": "2025-06-20"
+  }'
+```
+
+## Step 7: Production Deployment on ElizaOS
+
+### 7.1 Deploy to Your ElizaOS Instance
+Since you have ElizaOS running at https://eliza.shipping4.degenai.us, you can deploy Autonate directly:
+
+```bash
+# Package the Autonate system
+bun run build:production
+
+# Deploy to your ElizaOS instance
+elizaos deploy --url https://eliza.shipping4.degenai.us \
+  --project autonate-liberation \
+  --agents all
+```
+
+### 7.2 Configure Webhooks
+Set up webhooks for external services to communicate with your agents:
+
+```javascript
+// Example webhook configuration
 {
-  "orchestration": {
-    "primary": "Autonate Prime",
-    "coordination_mode": "hierarchical",
-    "communication_protocol": "internal_message_bus"
-  },
-  "agent_roles": {
-    "Autonate Prime": {
-      "role": "orchestrator",
-      "can_delegate_to": ["all"],
-      "priority": 1
-    },
-    "Wellness Guardian": {
-      "role": "support",
-      "monitors": ["human_coordinators"],
-      "priority": 2
-    },
-    "Route Oracle": {
-      "role": "specialist",
-      "domain": "logistics",
-      "priority": 2
-    },
-    "Customer Empath": {
-      "role": "specialist",
-      "domain": "customer_relations",
-      "priority": 2
-    },
-    "Carrier Vettor": {
-      "role": "specialist",
-      "domain": "carrier_management",
-      "priority": 2
-    },
-    "Narrative Artist": {
-      "role": "support",
-      "domain": "communications",
-      "priority": 3
-    }
-  },
-  "workflows": {
-    "new_shipment": {
-      "trigger": "customer_inquiry",
-      "flow": [
-        "Autonate Prime",
-        "Route Oracle",
-        "Carrier Vettor",
-        "Customer Empath",
-        "Narrative Artist"
-      ]
-    },
-    "delay_detected": {
-      "trigger": "route_oracle_alert",
-      "flow": [
-        "Route Oracle",
-        "Autonate Prime",
-        "Customer Empath",
-        "Narrative Artist"
-      ]
-    },
-    "coordinator_stress": {
-      "trigger": "wellness_threshold",
-      "flow": [
-        "Wellness Guardian",
-        "Autonate Prime"
-      ]
-    }
-  }
+  "dialpad": "https://eliza.shipping4.degenai.us/webhooks/dialpad",
+  "slack": "https://eliza.shipping4.degenai.us/webhooks/slack",
+  "batscrm": "https://eliza.shipping4.degenai.us/webhooks/crm"
 }
 ```
 
-## Step 5: Test the Deployment
+## Step 8: Monitoring & Optimization
 
-### 5.1 Verify Agent Status
-Check that all agents are active in your ElizaOS dashboard:
+### 8.1 Access Monitoring Dashboard
 - Navigate to https://eliza.shipping4.degenai.us
-- Click on "Agents" in the sidebar
-- Verify all 6 Autonate agents show as "active"
+- Click on "Logs" to view agent activity
+- Monitor performance metrics for each agent
 
-### 5.2 Test Integration Points
-Run integration tests:
-
-```bash
-# Test Dialpad integration
-elizaos test --integration dialpad --agent "Customer Empath"
-
-# Test Slack integration
-elizaos test --integration slack --agent "Autonate Prime"
-
-# Test BatsCRM integration
-elizaos test --integration crm --agent "Carrier Vettor"
-```
-
-### 5.3 Run Coordination Test
-Test multi-agent coordination:
-
-```bash
-# Simulate a customer inquiry workflow
-elizaos test --workflow new_shipment --data test/sample-shipment.json
-```
-
-## Step 6: Production Deployment
-
-### 6.1 Enable Monitoring
-Set up comprehensive monitoring:
-
-```bash
-# Enable ElizaOS monitoring
-elizaos monitoring enable --level comprehensive
-
-# Set up alerts
-elizaos alerts create --threshold "error_rate > 0.05" --notify slack
-elizaos alerts create --threshold "response_time > 2000" --notify email
-```
-
-### 6.2 Configure Backup
-Enable automatic backups:
-
-```bash
-# Configure daily backups
-elizaos backup configure --frequency daily --retention 30
-```
-
-### 6.3 Go Live
-Start the production deployment:
-
-```bash
-# Start all Autonate agents
-elizaos agent start --all --group autonate
-
-# Enable auto-scaling
-elizaos scaling enable --min 1 --max 10 --metric cpu
-```
-
-## Step 7: Post-Deployment
-
-### 7.1 Monitor Performance
-Access the monitoring dashboard:
-- URL: https://eliza.shipping4.degenai.us/metrics
-- Monitor agent performance
-- Track integration health
-- Review customer satisfaction metrics
-
-### 7.2 Optimization
-After 1 week of operation:
-1. Review performance metrics
-2. Adjust agent parameters
-3. Fine-tune coordination workflows
-4. Implement custom rules based on your operations
-
-### 7.3 Training Your Team
-- Schedule training sessions for coordinators
-- Create custom Slack commands for easy interaction
-- Set up emergency override procedures
-- Document escalation pathways
+### 8.2 Performance Tuning
+After deployment, monitor and adjust:
+- Response times for customer inquiries
+- Route optimization accuracy
+- Carrier selection efficiency
+- Human coordinator workload reduction
 
 ## Troubleshooting
 
-### Common Issues
+### Common Issues and Solutions
 
-1. **Agent Not Responding**
+1. **Agent Not Appearing in Dashboard**
    ```bash
-   elizaos agent restart --name "Agent Name"
-   elizaos logs --agent "Agent Name" --tail 100
+   # Check agent status
+   elizaos agent list
+   
+   # Restart specific agent
+   elizaos agent restart --name "Autonate Prime"
    ```
 
-2. **Integration Failures**
+2. **Integration Connection Failures**
+   - Verify API keys in .env file
+   - Check network connectivity
+   - Review logs: `elizaos logs --tail 100`
+
+3. **Memory/Performance Issues**
    ```bash
-   elizaos integration test --service dialpad
-   elizaos integration reconnect --service slack
+   # Adjust memory allocation
+   NODE_OPTIONS="--max-old-space-size=4096" elizaos start
    ```
-
-3. **Coordination Issues**
-   ```bash
-   elizaos coordination status
-   elizaos coordination reset --workflow new_shipment
-   ```
-
-## Support Resources
-
-- **Documentation**: https://elizaos.ai/docs
-- **Autonate Specific**: Contact your implementation team
-- **Emergency Support**: Use the Slack channel #autonate-emergency
 
 ## Next Steps
 
-1. **Week 1**: Monitor initial performance
-2. **Week 2**: Implement feedback and optimizations
+1. **Week 1**: Monitor initial performance and gather feedback
+2. **Week 2**: Fine-tune agent responses and workflows
 3. **Week 3**: Expand to full customer base
-4. **Week 4**: Advanced feature activation
+4. **Week 4**: Activate advanced features (predictive routing, emotional intelligence)
 
-Remember: The system is designed to augment human coordinators, not replace them. Ensure your team understands they maintain full control and can override any AI decision.
+## Support Resources
+
+- **ElizaOS Documentation**: https://elizaos.github.io/eliza/docs/
+- **Autonate GitHub**: https://github.com/DeganAI/autonate-liberation
+- **Community Discord**: Join the ElizaOS Discord for support
+- **Emergency Support**: Contact your implementation specialist
 
 ---
 
-*Deployment guide v1.0 - For questions, contact your Autonate implementation specialist*
+*Remember: Autonate is designed to augment human coordinators, not replace them. The system provides superpowers while maintaining human oversight and control.*
+
+*Deployment guide for Autonate Liberation on ElizaOS v1.0*
